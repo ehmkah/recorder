@@ -1,75 +1,73 @@
 import pyaudio
-import wave
 import sys
+from pydub import AudioSegment
+import time
 
 # --- KONFIGURATION ---
-CHUNK = 1024
 FORMAT = pyaudio.paInt16
 CHANNELS = 2
 RATE = 44100
-RECORD_SECONDS = 5        # Testdauer: 5 Sekunden
-OUTPUT_FILENAME = "test_aufnahme.wav"
+CHUNK = 1024
+OUTPUT_FILENAME = "aufnahme_session.mp3"
 
 p = pyaudio.PyAudio()
 
 # 1. BlackHole suchen
 device_index = None
-print("--- Suche nach BlackHole Device ---")
-
 for i in range(p.get_device_count()):
     dev = p.get_device_info_by_index(i)
-    # Wir suchen nach "BlackHole" im Namen des Audio-Geräts
     if "BlackHole" in dev['name']:
         device_index = i
-        print(f"Gefunden: '{dev['name']}' auf Index {i}")
         break
 
 if device_index is None:
-    print("FEHLER: BlackHole wurde nicht gefunden!")
-    print("Stelle sicher, dass BlackHole installiert ist.")
-    p.terminate()
+    print("Fehler: BlackHole wurde nicht gefunden!")
     sys.exit()
 
-# 2. Aufnahme-Stream vorbereiten
-try:
-    stream = p.open(format=FORMAT,
-                    channels=CHANNELS,
-                    rate=RATE,
-                    input=True,
-                    input_device_index=device_index,
-                    frames_per_buffer=CHUNK)
-except Exception as e:
-    print(f"Fehler beim Öffnen des Streams: {e}")
-    p.terminate()
-    sys.exit()
+print(f"Nutze Gerät: {p.get_device_info_by_index(device_index)['name']}")
 
-print(f"\n--- Aufnahme gestartet ({RECORD_SECONDS} Sek) ---")
-print("TIPP: Spiel jetzt Musik ab (du wirst nichts hören!).")
+# 2. Stream starten
+stream = p.open(format=FORMAT,
+                channels=CHANNELS,
+                rate=RATE,
+                input=True,
+                input_device_index=device_index,
+                frames_per_buffer=CHUNK)
+
+print("\n" + "="*30)
+print("🔴 AUFNAHME LÄUFT...")
+print("Beenden mit: STRG + C")
+print("="*30 + "\n")
 
 frames = []
 
-# 3. Daten in den RAM lesen
-for _ in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
-    try:
+try:
+    while True:
         data = stream.read(CHUNK, exception_on_overflow=False)
         frames.append(data)
-    except Exception as e:
-        print(f"Fehler während der Aufnahme: {e}")
-        break
+except KeyboardInterrupt:
+    print("\n\n--- Aufnahme gestoppt. ---")
+finally:
+    # Stream schließen
+    stream.stop_stream()
+    stream.close()
+    p.terminate()
 
-print("--- Aufnahme beendet ---")
+# 3. Konvertierung in MP3
+print("Konvertiere zu MP3... Bitte warten.")
 
-# 4. Aufräumen
-stream.stop_stream()
-stream.close()
-p.terminate()
+# Wir fügen die Chunks zusammen
+raw_data = b''.join(frames)
 
-# 5. Als WAV speichern (zum Testen am einfachsten)
-with wave.open(OUTPUT_FILENAME, 'wb') as wf:
-    wf.setnchannels(CHANNELS)
-    wf.setsampwidth(p.get_sample_size(FORMAT))
-    wf.setframerate(RATE)
-    wf.writeframes(b''.join(frames))
+# Erstelle ein AudioSegment aus den Rohdaten
+audio_segment = AudioSegment(
+    data=raw_data,
+    sample_width=p.get_sample_size(FORMAT),
+    frame_rate=RATE,
+    channels=CHANNELS
+)
 
-print(f"\nFERTIG! Datei gespeichert als: {OUTPUT_FILENAME}")
-print("Stelle deinen Ton-Ausgang wieder auf 'Lautsprecher' um sie anzuhören.")
+# Export als MP3
+audio_segment.export(OUTPUT_FILENAME, format="mp3", bitrate="192k")
+
+print(f"ERFOLG: Datei gespeichert als '{OUTPUT_FILENAME}'")
