@@ -2,6 +2,16 @@
 
 Experimenting with python and blackhole.
 
+=== Usage
+
+* for macosx
+** install blackhole
+** switch your sound output to blackhole
+** reduce volume to about 70%
+** install requiredment
+** start recording python main.py
+
+
 === Developing
 
 * General information can be found in https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/[offical python documentation]
