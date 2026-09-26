@@ -1,0 +1,4 @@
+audioop-lts==0.2.2
+PyAudio==0.2.14
+pydub==0.25.1
+yt-dlp==2026.2.4
